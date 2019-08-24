@@ -17,7 +17,16 @@ let cargo-vendor-normalise = stdenv.mkDerivation {
   preferLocalBuild = true;
 };
 in
-{ name ? "cargo-deps", src, srcs, patches, sourceRoot, sha256, cargoUpdateHook ? "" }:
+{ name ? "cargo-deps"
+, src
+, srcs
+, patches
+, sourceRoot
+, sha256
+, cargoUpdateHook ? ""
+, # whenever to also include the Cargo.lock in the output
+  copyLockfile ? false
+}:
 stdenv.mkDerivation {
   name = "${name}-vendor";
   nativeBuildInputs = [ cacert cargo-vendor git cargo-vendor-normalise cargo ];
@@ -52,6 +61,10 @@ stdenv.mkDerivation {
     if ! cmp $CARGO_CONFIG ${./fetchcargo-default-config.toml} > /dev/null; then
       install -D $CARGO_CONFIG $out/.cargo/config;
     fi;
+
+  '' + lib.optionalString copyLockfile ''
+    # add the Cargo.lock to allow hash invalidation
+    cp Cargo.lock $out/Cargo.lock
   '';
 
   outputHashAlgo = "sha256";

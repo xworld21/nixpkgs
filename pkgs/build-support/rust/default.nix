@@ -11,6 +11,7 @@
 , buildInputs ? []
 , nativeBuildInputs ? []
 , cargoUpdateHook ? ""
+, cargoCopyLockfile ? false
 , cargoDepsHook ? ""
 , cargoBuildFlags ? []
 , buildType ? "release"
@@ -26,6 +27,7 @@ let
   cargoDeps = if cargoVendorDir == null
     then fetchcargo {
         inherit name src srcs sourceRoot cargoUpdateHook;
+        copyLockfile = cargoCopyLockfile;
         patches = cargoPatches;
         sha256 = cargoSha256;
       }
