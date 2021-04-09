@@ -31,8 +31,12 @@ s/^doccontainerchecksum (.*)/  sha512.doc = "\1";/p
 s/^srccontainerchecksum (.*)/  sha512.source = "\1";/p
 /^runfiles /i\  hasRunfiles = true;
 
-# number of path components to strip, defaulting to 1 ("texmf-dist/")
-/^relocated 1/i\  stripPrefix = 0;
+# non-relocated paths can be:
+#   doc.html (texlive-docindex doc)
+#   install-tl texmf-dist tlpkg (texlive-scripts run)
+#   texmf-dist
+#   tlpkg
+/^relocated 1/i\  relocated = true;
 
 # extract version and clean unwanted chars from it
 /^catalogue-version/y/ \/~/_--/
