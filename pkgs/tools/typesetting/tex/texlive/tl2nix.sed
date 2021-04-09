@@ -2,7 +2,13 @@
 1itl: { # no indentation
 $a}
 
-# trash packages we don't want
+# trash packages we don't want:
+#   00texlive.config
+#   00texlive.image
+#   00texlive.installation
+#   00texlive.installer
+#   texlive.infra
+#   binaries: *.win32|aarch64|amd64|armhf|universal|i386|x86_64*
 /^name .*\./,/^$/d
 
 # quote package names, as some start with a number :-/
