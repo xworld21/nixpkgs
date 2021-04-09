@@ -12,6 +12,12 @@ $a}
 #   texlive-msg-translations
 /^name (.*\.|texlive-msg-translations)/,/^$/d
 
+# trash dependencies we don't want
+#   *.ARCH
+#   *.win32
+#   texlive.infra
+/^depend .*\./d
+
 # quote package names, as some start with a number :-/
 s/^name (.*)/name "\1"/
 
@@ -37,5 +43,5 @@ s/^srccontainerchecksum (.*)/  sha512.source = "\1";/p
 s/^catalogue-version_(.*)/  version = "\1";/p
 
 # extract deps
-s/^depend ([^.]*)$/  deps."\1" = tl."\1";/p
+s/^depend (.*)$/  deps."\1" = tl."\1";/p
 
