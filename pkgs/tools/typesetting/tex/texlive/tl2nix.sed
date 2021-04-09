@@ -18,14 +18,11 @@ $a}
 #   texlive.infra
 /^depend .*\./d
 
-# quote package names, as some start with a number :-/
-s/^name (.*)/name "\1"/
-
 # extract revision
 s/^revision ([0-9]*)$/  revision = \1;/p
 
 # form an attrmap per package
-/^name /s/^name (.*)/\1 = {/p
+s/^name (.*)/"\1" = {/p
 /^$/,1i};
 
 # extract hashes of *.tar.xz
