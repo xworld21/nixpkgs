@@ -8,8 +8,9 @@ $a}
 #   00texlive.installation
 #   00texlive.installer
 #   texlive.infra
-#   binaries: *.win32|aarch64|amd64|armhf|universal|i386|x86_64*
-/^name .*\./,/^$/d
+#   binaries: *.(win32|aarch64|amd64|armhf|universal|i386|x86_64)*
+#   texlive-msg-translations
+/^name (.*\.|texlive-msg-translations)/,/^$/d
 
 # quote package names, as some start with a number :-/
 s/^name (.*)/name "\1"/
