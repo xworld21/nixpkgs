@@ -21483,6 +21483,29 @@ let
     buildInputs = [ TestBase ];
   };
 
+  TeXLive = buildPerlPackage rec {
+    pname = "TeXLive";
+    # extract year and snapshot date from texlive
+    version = builtins.elemAt (lib.splitString "-infraonly-" pkgs.texlive.combined.scheme-infraonly.name) 1;
+    src = pkgs.fetchurl {
+      url = with lib; let year = substring 5 4 version; month = substring 9 2 version; day = substring 11 2 version; in
+        "https://texlive.info/tlnet-archive/${year}/${month}/${day}/tlnet/archive/texlive.infra.tar.xz";
+      # hash can be retrieved from
+      # https://texlive.info/tlnet-archive/${year}/${month}/${day}/tlnet/tlpkg/texlive.tlpdb.tar.xz
+      hash = "sha512-9DnXH1IUblhXRFkVt28BZMQ54lRio0EPuwvmYAgaV9kIO3JSi/Mu74xkPVUrr5tbI8HI/5VC/JBUEYAL7tjRaQ==";
+    };
+    meta = {
+      description = "Basic TeX Live infrastructure (perl modules)";
+      license = with lib.licenses; [ gpl2Plus publicDomain ];
+    };
+    propagatedBuildInputs = [ TextUnidecode XMLParser XMLXPath ];
+    sourceRoot = "tlpkg";
+    postUnpack = ''
+      rm -r $sourceRoot/{gpg,installer,tlpobj,TeXLive/trans.pl}
+      echo "use ExtUtils::MakeMaker; WriteMakefile(NAME => '$pname', VERSION => '$version' );" >$sourceRoot/Makefile.PL
+    '';
+  };
+
   TextAligner = buildPerlModule {
     pname = "Text-Aligner";
     version = "0.16";
