@@ -38,37 +38,40 @@ let
   mkUniqueOutPaths = pkgs: uniqueStrings
     (map (p: p.outPath) (builtins.filter lib.isDerivation pkgs));
 
-in (buildEnv {
   name = "texlive-${extraName}-${bin.texliveYear}${extraVersion}";
 
-  extraPrefix = "/share/texmf";
+  texmf = (buildEnv {
+    name = "${name}-tex";
+    extraPrefix = "/share/texmf";
+    ignoreCollisions = false;
+    paths = pkgList.nonbin;
+    postBuild =
+    # link info and man pages
+    ''
+      for d in {info,man}; do
+        [[ -e "$out/share/texmf/doc/$d" ]] && ln -s "texmf/doc/$d" "$out/share/$d"
+      done
+    '';
+  }).overrideAttrs (_: { allowSubstitutes = true; });
+
+in (buildEnv {
+  inherit name;
 
   ignoreCollisions = false;
-  paths = pkgList.nonbin;
+  paths = pkgList.bin ++ [ texmf ];
   pathsToLink = [
     "/"
-    "/tex/generic/config" # make it a real directory for scheme-infraonly
+    "/share/texmf" # ensure these are writeable directories and not symlinks
+    "/share/texmf/scripts"
+    "/share/texmf/web2c"
+    "/share/texmf/tex/generic/config"
+    "/share/texmf-dist"
   ];
 
   buildInputs = [ makeWrapper ] ++ pkgList.extraInputs;
 
   postBuild = ''
     cd "$out"
-    mkdir -p ./bin
-  '' +
-    lib.concatMapStrings
-      (path: ''
-        for f in '${path}'/bin/*; do
-          if [[ -L "$f" ]]; then
-            cp -d "$f" ./bin/
-          else
-            ln -s "$f" ./bin/
-          fi
-        done
-      '')
-      pkgList.bin
-    +
-  ''
     export PATH="$out/bin:$out/share/texmf/scripts/texlive:${perl}/bin:$PATH"
     export TEXMFCNF="$out/share/texmf/web2c"
     export TEXMFDIST="$out/share/texmf"
@@ -246,18 +249,6 @@ in (buildEnv {
   # TODO: a context trigger https://www.preining.info/blog/2015/06/debian-tex-live-2015-the-new-layout/
     # http://wiki.contextgarden.net/ConTeXt_Standalone#Unix-like_platforms_.28Linux.2FMacOS_X.2FFreeBSD.2FSolaris.29
 
-    # I would just create links from "$out"/share/{man,info},
-    #   but buildenv has problems with merging symlinks with directories;
-    #   note: it's possible we might need deepen the work-around to man/*.
-  ''
-    for d in {man,info}; do
-      [[ -e "./share/texmf/doc/$d" ]] || continue;
-      (
-        mkdir -p "./share/$d" && cd "./share/$d"
-        ln -s -t . ../texmf/doc/"$d"/*
-      )
-    done
-  '' +
   # MkIV uses its own lookup mechanism and we need to initialize
   # caches for it. Unsetting TEXMFCNF is needed to let mtxrun
   # determine it from kpathsea so that the config path is given with
