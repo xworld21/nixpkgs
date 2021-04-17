@@ -83,39 +83,30 @@ in (buildEnv {
     # TODO: perhaps do lua actions?
     # tried inspiration from install-tl, sub do_texmf_cnf
   ''
-    patchCnfLua() {
-      local cnfLua="$1"
-
-      if [ -e "$cnfLua" ]; then
+    {
+      local cnfLua="$out/share/texmf/web2c/texmfcnf.lua"
+      if [[ -e "$cnfLua" ]]; then
         local cnfLuaOrig="$(realpath "$cnfLua")"
-        rm ./texmfcnf.lua
-        sed \
-          -e 's,texmf-dist,texmf,g' \
-          -e "s,= texmflocal,= \"$out/share/texmf\",g" \
-          -e "s,\$SELFAUTOLOC,$out,g" \
-          -e "s,selfautodir:/,$out/share/,g" \
-          -e "s,selfautodir:,$out/share/,g" \
-          -e "s,selfautoparent:/,$out/share/,g" \
-          -e "s,selfautoparent:,$out/share/,g" \
-          "$cnfLuaOrig" > "$cnfLua"
+        rm "$cnfLua"
+        substitute $cnfLuaOrig $cnfLua \
+          --replace 'texmf-dist"' 'texmf"' \
+          --replace '= texmflocal' '= "'"$out/share/texmf"'"' \
+          --replace '$SELFAUTOLOC' "$out" \
+          --replace 'selfautodir:' "$out/share/" \
+          --replace 'selfautoparent:' "$out/share/"
       fi
+
+      local cnf="$out/share/texmf/web2c/texmf.cnf"
+      local cnfOrig="$(realpath "$cnf")"
+      rm "$cnf"
+      substitute $cnfOrig $cnf \
+        --replace 'texmf-dist' 'texmf' \
+        --replace 'texmf-local' 'texmf' \
+        --replace '$SELFAUTOLOC' "$out" \
+        --replace '$SELFAUTODIR' "$out/share" \
+        --replace '$SELFAUTOPARENT' "$out/share" \
+        --replace '$SELFAUTOGRANDPARENT' "$out/share"
     }
-
-    (
-      cd ./share/texmf/web2c/
-      local cnfOrig="$(realpath ./texmf.cnf)"
-      rm ./texmf.cnf
-      sed \
-        -e 's,texmf-dist,texmf,g' \
-        -e 's,texmf-local,texmf,g' \
-        -e "s,\$SELFAUTOLOC,$out,g" \
-        -e "s,\$SELFAUTODIR,$out/share,g" \
-        -e "s,\$SELFAUTOPARENT,$out/share,g" \
-        -e "s,\$SELFAUTOGRANDPARENT,$out/share,g" \
-        "$cnfOrig" > ./texmf.cnf
-
-      patchCnfLua "./texmfcnf.lua"
-    )
   '' +
     # now filter hyphenation patterns, in a hacky way ATM
   (let
