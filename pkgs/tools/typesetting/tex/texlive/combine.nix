@@ -15,13 +15,13 @@ let
     ];
   };
   pkgList = rec {
-    all = lib.filter pkgFilter (combinePkgs pkgSet);
+    all = sortUnique (p: p.outPath or "") (lib.filter pkgFilter (combinePkgs pkgSet));
     splitBin = builtins.partition (p: p.tlType == "bin") all;
-    bin = mkUniqueOutPaths splitBin.right
+    bin = splitBin.right
       ++ lib.optional
           (lib.any (p: p.tlType == "run" && p.pname == "pdfcrop") splitBin.wrong)
           (lib.getBin ghostscript);
-    nonbin = mkUniqueOutPaths splitBin.wrong;
+    nonbin = splitBin.wrong;
 
     # extra interpreters needed for shebangs, based on 2015 schemes "medium" and "tetex"
     # (omitted tk needed in pname == "epspdf", bin/epspdftk)
@@ -33,16 +33,15 @@ let
       ++ lib.optional (lib.any pkgNeedsRuby splitBin.wrong) ruby;
 
     # names of hyphenation packages (only part after -)
-    hyphen = lib.concatMap
-      (p: let m = (builtins.match "(hyphen|dehyph)-(.*)" p.pname); in
-        if builtins.isNull m then [ ] else builtins.tail m)
+    hyphen = with lib; concatMap
+      (p: let m = builtins.match "(hyphen|dehyph)-(.*)" p.pname; in
+        if (isNull m) then [ ] else tail m)
       splitBin.wrong;
   };
 
-  uniqueStrings = list: lib.sort (a: b: a < b) (lib.unique list);
-
-  mkUniqueOutPaths = pkgs: uniqueStrings
-    (map (p: p.outPath) (builtins.filter lib.isDerivation pkgs));
+  sortUnique = with lib; f: x: if (x == [ ]) then x else
+    let y = sort (a: b: f a < f b) x; in
+    [(head y)] ++ (concatLists (zipListsWith (a: b: optional (a != b) b) y (tail y)));
 
   name = "texlive-${extraName}-${bin.texliveYear}${extraVersion}";
 
@@ -119,28 +118,25 @@ in (buildEnv {
     perl $out/share/texmf/scripts/texlive/mktexlsr.pl ./share/texmf
   '' +
     # now filter hyphenation patterns
-  (let
-    installed = lib.concatStringsSep "|" (uniqueStrings pkgList.hyphen);
-    # remove the lines for non-installed packages
-    script = writeText "hyphens.pl"
-      ''
-        if (m/^% from (?:.*)-(.*):$/) {
-          if ($1 =~ m/${installed}/) { $remove = 0; print; }
-          else { $remove = 1; } }
-        elsif (!$remove) { print; }
-      '';
-  in ''
-    {
-      local fname
-      for fname in "$out"/share/texmf/tex/generic/config/language.{dat,def}; do
-        if [[ -e "$fname" ]]; then
-          local lng="$(realpath "$fname")"
-          rm "$fname"
-          perl -n '${script}' < "$lng" > "$fname"
-        fi
+  ''{
+      local hyph
+      local hyphOrig
+      local omit
+      local lang
+      for hyph in "$out"/share/texmf/tex/generic/config/language.{dat,def}; do
+        [[ -e "$hyph" ]] || continue
+        hyphOrig="$(realpath "$hyph")"; rm "$hyph"; omit=""
+        while IFS= read line ; do
+          lang="''${line#% from *-}"
+          if [[ ! x"$lang" = x"$line" ]]; then
+            [[ x"$lang" =~ x(${lib.concatStringsSep "|" pkgList.hyphen}): ]] && omit="" || omit="yes"
+          fi
+          [[ -z "$omit" ]] && echo "$line"
+        done < "$hyphOrig" > "$hyph"
       done
     }
-  '') +
+    exit 1
+  '' +
 
   # function to wrap created executables with required env vars
   ''
