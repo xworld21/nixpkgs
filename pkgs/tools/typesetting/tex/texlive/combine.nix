@@ -31,6 +31,12 @@ let
     extraInputs =
       lib.optional (lib.any pkgNeedsPython splitBin.wrong) python3
       ++ lib.optional (lib.any pkgNeedsRuby splitBin.wrong) ruby;
+
+    # names of hyphenation packages (only part after -)
+    hyphen = lib.concatMap
+      (p: let m = (builtins.match "(hyphen|dehyph)-(.*)" p.pname); in
+        if builtins.isNull m then [ ] else builtins.tail m)
+      splitBin.wrong;
   };
 
   uniqueStrings = list: lib.sort (a: b: a < b) (lib.unique list);
@@ -108,26 +114,28 @@ in (buildEnv {
         --replace '$SELFAUTOGRANDPARENT' "$out/share"
     }
   '' +
-    # now filter hyphenation patterns, in a hacky way ATM
+    # now filter hyphenation patterns
   (let
-    pnames = uniqueStrings (map (p: p.pname) pkgList.splitBin.wrong);
-    script =
-      writeText "hyphens.sed" (
-        # pick up the header
-        "1,/^% from/p;"
-        # pick up all sections matching packages that we combine
-        + lib.concatMapStrings (pname: "/^% from ${pname}:$/,/^%/p;\n") pnames
-      );
+    installed = lib.concatStringsSep "|" (uniqueStrings pkgList.hyphen);
+    # remove the lines for non-installed packages
+    script = writeText "hyphens.pl"
+      ''
+        if (m/^% from (?:.*)-(.*):$/) {
+          if ($1 =~ m/${installed}/) { $remove = 0; print; }
+          else { $remove = 1; } }
+        elsif (!$remove) { print; }
+      '';
   in ''
-    (
-      cd ./share/texmf/tex/generic/config/
-      for fname in language.dat language.def; do
-        [ -e $fname ] || continue;
-        cnfOrig="$(realpath ./$fname)"
-        rm ./$fname
-        cat "$cnfOrig" | sed -n -f '${script}' > ./$fname
+    {
+      local fname
+      for fname in "$out"/share/texmf/tex/generic/config/language.{dat,def}; do
+        if [[ -e "$fname" ]]; then
+          local lng="$(realpath "$fname")"
+          rm "$fname"
+          perl -n '${script}' < "$lng" > "$fname"
+        fi
       done
-    )
+    }
   '') +
 
   # function to wrap created executables with required env vars
