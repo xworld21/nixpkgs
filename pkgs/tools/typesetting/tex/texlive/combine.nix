@@ -65,7 +65,6 @@ in (buildEnv {
     "/share/texmf/scripts"
     "/share/texmf/web2c"
     "/share/texmf/tex/generic/config"
-    "/share/texmf-dist"
   ];
 
   buildInputs = [ makeWrapper ] ++ pkgList.extraInputs;
@@ -80,7 +79,7 @@ in (buildEnv {
     export PERL5LIB="$out/share/texmf/scripts/texlive:${bin.core.out}/share/texmf-dist/scripts/texlive"
   '' +
     # patch texmf-dist  -> $out/share/texmf
-    # patch texmf-local -> $out/share/texmf-local
+    # patch texmf-local -> $out/share/texmf
     # TODO: perhaps do lua actions?
     # tried inspiration from install-tl, sub do_texmf_cnf
   ''
@@ -92,7 +91,7 @@ in (buildEnv {
         rm ./texmfcnf.lua
         sed \
           -e 's,texmf-dist,texmf,g' \
-          -e "s,\(TEXMFLOCAL[ ]*=[ ]*\)[^\,]*,\1\"$out/share/texmf-local\",g" \
+          -e "s,= texmflocal,= \"$out/share/texmf\",g" \
           -e "s,\$SELFAUTOLOC,$out,g" \
           -e "s,selfautodir:/,$out/share/,g" \
           -e "s,selfautodir:,$out/share/,g" \
@@ -108,6 +107,7 @@ in (buildEnv {
       rm ./texmf.cnf
       sed \
         -e 's,texmf-dist,texmf,g' \
+        -e 's,texmf-local,texmf,g' \
         -e "s,\$SELFAUTOLOC,$out,g" \
         -e "s,\$SELFAUTODIR,$out/share,g" \
         -e "s,\$SELFAUTOPARENT,$out/share,g" \
@@ -116,8 +116,6 @@ in (buildEnv {
         "$cnfOrig" > ./texmf.cnf
 
       patchCnfLua "./texmfcnf.lua"
-
-      mkdir $out/share/texmf-local
     )
   '' +
     # now filter hyphenation patterns, in a hacky way ATM
@@ -207,8 +205,6 @@ in (buildEnv {
     echo y | perl `type -P updmap.pl` --sys --syncwithtrees --force
     # Regenerate the map files (this is optional)
     perl `type -P updmap.pl` --sys --force
-
-    perl `type -P mktexlsr.pl` ./share/texmf-* # to make sure
   '' +
     # install (wrappers for) scripts, based on a list from upstream texlive
   ''
