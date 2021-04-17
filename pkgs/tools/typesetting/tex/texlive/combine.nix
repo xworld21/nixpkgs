@@ -114,6 +114,10 @@ in (buildEnv {
         --replace '$SELFAUTOGRANDPARENT' "$out/share"
     }
   '' +
+  # generate ls-R database
+  ''
+    perl $out/share/texmf/scripts/texlive/mktexlsr.pl ./share/texmf
+  '' +
     # now filter hyphenation patterns
   (let
     installed = lib.concatStringsSep "|" (uniqueStrings pkgList.hyphen);
@@ -194,7 +198,6 @@ in (buildEnv {
     sed "1s|$| -I $out/share/texmf/scripts/texlive|" -i "$out/bin/fmtutil"
     ln -sf fmtutil "$out/bin/mktexfmt"
 
-    perl `type -P mktexlsr.pl` ./share/texmf
     ${bin.texlinks} "$out/bin" && wrapBin
     (perl `type -P fmtutil.pl` --sys --all || true) | grep '^fmtutil' # too verbose
     #${bin.texlinks} "$out/bin" && wrapBin # do we need to regenerate format links?
