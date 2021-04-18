@@ -22,6 +22,9 @@ let
           (lib.any (p: p.tlType == "run" && p.pname == "pdfcrop") splitBin.wrong)
           (lib.getBin ghostscript);
     nonbin = splitBin.wrong;
+    engines = with lib; filter
+      (p: elem p.pname [ "core" "core-big" "luahbtex" "luajittex" "luatex"  "xetex"])
+      bin;
 
     # extra interpreters needed for shebangs, based on 2015 schemes "medium" and "tetex"
     # (omitted tk needed in pname == "epspdf", bin/epspdftk)
@@ -43,52 +46,14 @@ let
     let y = sort (a: b: f a < f b) x; in
     [(head y)] ++ (concatLists (zipListsWith (a: b: optional (a != b) b) y (tail y)));
 
-  name = "texlive-${extraName}-${bin.texliveYear}${extraVersion}";
-
-  texmf = (buildEnv {
-    name = "${name}-tex";
-    extraPrefix = "/share/texmf";
-    ignoreCollisions = false;
-    paths = pkgList.nonbin;
-    postBuild =
-    # link info and man pages
-    ''
-      for d in {info,man}; do
-        [[ -e "$out/share/texmf/doc/$d" ]] && ln -s "texmf/doc/$d" "$out/share/$d"
-      done
-    '';
-  }).overrideAttrs (_: { allowSubstitutes = true; });
-
-in (buildEnv {
-  inherit name;
-
-  ignoreCollisions = false;
-  paths = pkgList.bin ++ [ texmf ];
-  pathsToLink = [
-    "/"
-    "/share/texmf" # ensure these are writeable directories and not symlinks
-    "/share/texmf/scripts"
-    "/share/texmf/web2c"
-    "/share/texmf/tex/generic/config"
-  ];
-
-  buildInputs = [ makeWrapper ] ++ pkgList.extraInputs;
-
-  postBuild = ''
-    cd "$out"
-    export PATH="$out/bin:$out/share/texmf/scripts/texlive:${perl}/bin:$PATH"
-    export TEXMFCNF="$out/share/texmf/web2c"
-    export TEXMFDIST="$out/share/texmf"
-    export TEXMFSYSCONFIG="$out/share/texmf-config"
-    export TEXMFSYSVAR="$out/share/texmf-var"
-    export PERL5LIB="$out/share/texmf/scripts/texlive:${bin.core.out}/share/texmf-dist/scripts/texlive"
-  '' +
+  patchTEXMFConf =
     # patch texmf-dist  -> $out/share/texmf
     # patch texmf-local -> $out/share/texmf
     # TODO: perhaps do lua actions?
     # tried inspiration from install-tl, sub do_texmf_cnf
   ''
-    {
+    patchTEXMFConf () {
+      echo "Patching \$TEXMF/web2c/texmfcnf.lua" >&2
       local cnfLua="$out/share/texmf/web2c/texmfcnf.lua"
       if [[ -e "$cnfLua" ]]; then
         local cnfLuaOrig="$(realpath "$cnfLua")"
@@ -101,6 +66,7 @@ in (buildEnv {
           --replace 'selfautoparent:' "$out/share/"
       fi
 
+      echo "Patching \$TEXMF/web2c/texmf.cnf" >&2
       local cnf="$out/share/texmf/web2c/texmf.cnf"
       local cnfOrig="$(realpath "$cnf")"
       rm "$cnf"
@@ -112,13 +78,14 @@ in (buildEnv {
         --replace '$SELFAUTOPARENT' "$out/share" \
         --replace '$SELFAUTOGRANDPARENT' "$out/share"
     }
-  '' +
-  # generate ls-R database
-  ''
-    perl $out/share/texmf/scripts/texlive/mktexlsr.pl ./share/texmf
-  '' +
-    # now filter hyphenation patterns
-  ''{
+
+    patchTEXMFConf
+    export TEXMFCNF="$out/share/texmf/web2c"
+  '';
+
+  filterHyphenPats =
+  ''filterHyphenPats () {
+      echo "Filtering the hyphenation patterns" >&2
       local hyph
       local hyphOrig
       local omit
@@ -135,9 +102,80 @@ in (buildEnv {
         done < "$hyphOrig" > "$hyph"
       done
     }
-    exit 1
-  '' +
 
+    filterHyphenPats
+  '';
+
+  mkTeXlsR = ''
+    echo "Generating the ls-R database in $out" >&2
+    ${perl}/bin/perl $out/share/texmf/scripts/texlive/mktexlsr.pl $out/share/texmf
+  '';
+
+  fmtutil = ''
+    fmtutil () {
+      local scripts=$out/share/texmf/scripts/texlive
+      PATH=$scripts:$PATH \
+      PERL5LIB="$out/share/texmf/scripts/texlive:${bin.core.out}/share/texmf-dist/scripts/texlive" \
+      perl $scripts/fmtutil.pl --all --sys || true
+    }
+
+    fmtutil
+  '';
+
+  name = "texlive-${extraName}-${bin.texliveYear}${extraVersion}";
+
+  texmf = (buildEnv {
+    name = "${name}-tex";
+    extraPrefix = "/share/texmf";
+    buildInputs = [ perl bin.core.out ] ++ pkgList.engines;
+    paths = pkgList.nonbin;
+    postBuild =
+      patchTEXMFConf +
+      filterHyphenPats +
+      mkTeXlsR +
+      fmtutil +
+      # link info and man pages
+      ''
+        for d in {info,man}; do
+          [[ -e "$out/share/texmf/doc/$d" ]] && ln -s "texmf/doc/$d" "$out/share/$d"
+        done
+      '';
+  }).overrideAttrs (_: { allowSubstitutes = true; });
+
+in (buildEnv {
+  inherit name;
+
+  ignoreCollisions = false;
+  paths = pkgList.bin ++ [ texmf ];
+  pathsToLink = [
+    "/"
+    "/share/texmf" # ensure these are writeable directories and not symlinks
+    "/share/texmf/scripts"
+    "/share/texmf/web2c"
+    "/share/texmf/tex/generic/config"
+  ];
+
+  buildInputs = [ makeWrapper bin.core ] ++ pkgList.extraInputs;
+
+  postBuild = ''
+    cd "$out"
+    export PATH="$out/bin:$out/share/texmf/scripts/texlive:${perl}/bin:$PATH"
+    export TEXMFCNF="$out/share/texmf/web2c"
+    export TEXMFDIST="$out/share/texmf"
+    export TEXMFSYSCONFIG="$out/share/texmf-config"
+    export TEXMFSYSVAR="$out/share/texmf-var"
+    export PERL5LIB="$out/share/texmf/scripts/texlive:${bin.core.out}/share/texmf-dist/scripts/texlive"
+  '' +
+  # generate ls-R database
+  ''
+    perl $out/share/texmf/scripts/texlive/mktexlsr.pl ./share/texmf
+  '' +
+  # generate font metric
+  ''
+    (perl `type -P fmtutil.pl` --sys --byengine xetex || true) # too verbose
+    exit 1
+    (perl `type -P fmtutil.pl` --sys --all || true) | grep '^fmtutil' # too verbose
+  '' +
   # function to wrap created executables with required env vars
   ''
     wrapBin() {
