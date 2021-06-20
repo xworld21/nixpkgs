@@ -44,7 +44,7 @@ and regenerate all of the sha512 hashes for the current upstream distribution in
 
 Use the url
 
-http://ftp.math.utah.edu/pub/tex/historic/systems/texlive/$YEAR/tlnet-final/tlpkg/texlive.tlpdb.xz
+https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/$YEAR/tlnet-final/tlpkg/texlive.tlpdb.xz
 
 for the final TeX Live release.
 
