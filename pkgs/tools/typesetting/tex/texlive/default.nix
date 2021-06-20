@@ -79,6 +79,7 @@ let
         [( if (attrs.hasRunfiles or false) then mkPkgV "run"
             # the fake derivations are used for filtering of hyphenation patterns
           else { inherit pname version; tlType = "run"; }
+               // lib.optionalAttrs (attrs.hasHyphens or false) { inherit (attrs) hasHyphens; }
         )]
         ++ lib.optional (attrs.sha512 ? doc) (mkPkgV "doc")
         ++ lib.optional (attrs.sha512 ? source) (mkPkgV "source")
@@ -122,7 +123,8 @@ let
 
       passthru = {
         inherit pname tlType version;
-      } // lib.optionalAttrs (sha512 != "") { inherit src; };
+      } // lib.optionalAttrs (sha512 != "") { inherit src; }
+        // lib.optionalAttrs (args.hasHyphens or false) { inherit (args) hasHyphens; };
       unpackCmd = file: ''
         tar -xf ${file} \
           '--strip-components=${toString stripPrefix}' \
