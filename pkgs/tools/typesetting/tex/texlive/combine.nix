@@ -135,12 +135,19 @@ in (buildEnv {
         # pick up footer (for language.def)
         + "/^%%% No changes may be made beyond this point.$/,$p;\n"
       );
+    scriptLua =
+      writeText "hyphens.lua.sed" (
+        "1,/^-- END of language.us.lua/p;\n"
+        + lib.concatMapStrings (pname: section "^-- from ${pname}:$" "^}$\\|^-- from") pnames
+        + "$p;\n"
+      );
   in ''
     (
       cd ./share/texmf/tex/generic/config/
       for fname in language.{dat,def}; do
         [[ -e "$fname" ]] && sed -n -f '${script}' -i "$fname"
       done
+      [[ -e language.dat.lua ]] && sed -n -f '${scriptLua}' -i language.dat.lua
     )
   '') +
 
