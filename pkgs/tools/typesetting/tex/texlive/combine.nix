@@ -124,23 +124,22 @@ in (buildEnv {
   (let
     hyphens = lib.filter (p: p.hasHyphens or false) pkgList.splitBin.wrong;
     pnames = uniqueStrings (map (p: p.pname) hyphens);
+    # sed expression that prints the lines in /start/,/end/ except for /end/
+    section = start: end: "/${start}/,/${end}/{ /${start}/p; /${end}/!p; };\n";
     script =
       writeText "hyphens.sed" (
         # pick up the header
-        "1,/^% from/p;\n"
+        "1,/^% from/{ /^% from/!p; };\n"
         # pick up all sections matching packages that we combine
-        + lib.concatMapStrings (pname: "/^% from ${pname}:$/,/^%/p;\n") pnames
+        + lib.concatMapStrings (pname: section "^% from ${pname}:$" "^% from\\|^%%% No changes may be made beyond this point.$") pnames
         # pick up footer (for language.def)
         + "/^%%% No changes may be made beyond this point.$/,$p;\n"
       );
   in ''
     (
       cd ./share/texmf/tex/generic/config/
-      for fname in language.dat language.def; do
-        [ -e $fname ] || continue;
-        cnfOrig="$(realpath ./$fname)"
-        rm ./$fname
-        cat "$cnfOrig" | sed -n -f '${script}' > ./$fname
+      for fname in language.{dat,def}; do
+        [[ -e "$fname" ]] && sed -n -f '${script}' -i "$fname"
       done
     )
   '') +
