@@ -19,7 +19,6 @@ let
   };
 
   # map: name -> fixed-output hash
-  # sha1 in base32 was chosen as a compromise between security and length
   fixedHashes = lib.optionalAttrs useFixedHashes (import ./fixedHashes.nix);
 
   # function for creating a working environment from a set of TL packages
@@ -176,7 +175,7 @@ let
       # currently unused as we prefer to keep the sha512 hashes for reproducibility
       fetchurl {
         inherit urls;
-        sha1 = if fixedHash == null then throw "TeX Live package ${tlName} is missing hash!"
+        sha256 = if fixedHash == null then throw "TeX Live package ${tlName} is missing hash!"
           else fixedHash;
         name = tlName;
         recursiveHash = true;
@@ -191,7 +190,7 @@ let
           inherit passthru;
         } // lib.optionalAttrs (fixedHash != null) {
           outputHash = fixedHash;
-          outputHashAlgo = "sha1";
+          outputHashAlgo = "sha256";
           outputHashMode = "recursive";
         }
       )
