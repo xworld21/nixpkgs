@@ -1,7 +1,7 @@
 # Generic builder for tcl packages/applications, generally based on mk-python-derivation.nix
 { tcl
 , lib
-, makeWrapper
+, makeBinaryWrapper
 , runCommand
 , writeScript
 }:
@@ -41,7 +41,7 @@ let
   ]) // {
 
     buildInputs = buildInputs ++ [ tcl.tclPackageHook ];
-    nativeBuildInputs = nativeBuildInputs ++ [ makeWrapper tcl ];
+    nativeBuildInputs = nativeBuildInputs ++ [ makeBinaryWrapper tcl ];
     propagatedBuildInputs = propagatedBuildInputs ++ [ tcl ];
 
     TCLSH = "${getBin tcl}/bin/tclsh";
