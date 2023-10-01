@@ -193,6 +193,11 @@ let
       )
   );
 
+  schemes = lib.listToAttrs (map (s: {
+    name = "texlive" + lib.toUpper (builtins.substring 0 1 s) + (builtins.substring 1 (builtins.stringLength s - 1) s);
+    value = lib.addMetaAttrs { license = licenses.${"scheme-" + s}; } (buildTeXEnv { requiredTeXPackages = ps: [ ps.${"scheme-" + s} ]; });
+  }) [ "basic" "context" "full" "gust" "infraonly" "medium" "minimal" "small" "tetex" ]);
+
 in
   allPkgLists // {
     pkgs = tl;
@@ -211,6 +216,8 @@ in
     combine = assert assertions; combine;
 
     combined = assert assertions; combined;
+
+    inherit schemes;
 
     # convenience alias
     withPackages = (buildTeXEnv { }).withPackages;
