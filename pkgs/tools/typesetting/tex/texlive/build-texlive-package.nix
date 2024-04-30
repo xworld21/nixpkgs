@@ -14,6 +14,7 @@
 
   # TeX Live prerequisites
 , texliveBinaries
+, texliveVersion
 }:
 
 /* Convert an attribute set extracted from tlpdb.nix (with the deps attribute
@@ -56,7 +57,7 @@
 
 let
   # common metadata
-  name = "${pname}-${version}${extraVersion}";
+  name = "texlive${texliveVersion}-${pname}-${version}${extraVersion}";
   meta = {
     license = map (x: lib.licenses.${x}) license;
     # TeX Live packages should not be installed directly into the user profile

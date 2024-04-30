@@ -96,6 +96,7 @@ let
   buildTeXLivePackage = import ./build-texlive-package.nix {
     inherit lib fetchurl runCommand writeShellScript bash jdk perl python3 ruby snobol4 tk;
     texliveBinaries = bin;
+    texliveVersion = toString version.texliveYear;
   };
 
   tl = lib.mapAttrs (pname: { revision, extraRevision ? "", ... }@args:
